@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fonctions d'activation – TensorFlow</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dfe3ea;
+    --grid:#e9ecf1; --axis:#8a96a6; --curve:#2557d6; --curve2:#d6502b; --accent:#2557d6;
+    --max:#0f8a5f; --min:#c2410c; --chip:#eef2f8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#12161c; --card:#1a2029; --ink:#e7ebf1; --muted:#9aa7b8; --line:#2b3441;
+      --grid:#232b36; --axis:#6c7a8c; --curve:#6c9bff; --curve2:#ff8a63; --accent:#6c9bff;
+      --max:#4cd4a0; --min:#ff9a62; --chip:#232b36;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12161c; --card:#1a2029; --ink:#e7ebf1; --muted:#9aa7b8; --line:#2b3441;
+    --grid:#232b36; --axis:#6c7a8c; --curve:#6c9bff; --curve2:#ff8a63; --accent:#6c9bff;
+    --max:#4cd4a0; --min:#ff9a62; --chip:#232b36;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px 16px 48px}
+  h1{font-size:1.6rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .controls{display:flex;flex-wrap:wrap;gap:16px 28px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:14px 18px;margin-bottom:22px;align-items:center}
+  .ctl{display:flex;flex-direction:column;gap:2px;min-width:170px}
+  .ctl label{font-size:.82rem;color:var(--muted)}
+  .ctl label b{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  h2{font-size:1.15rem;margin:28px 0 10px}
+  .tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:.9rem}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--chip)}
+  tr:last-child td{border-bottom:0}
+  td.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace}
+  td.mx{color:var(--max)} td.mn{color:var(--min)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 12px}
+  .card h3{margin:0;font-size:1.02rem}
+  .formula{font-family:ui-monospace,Consolas,monospace;font-size:.82rem;color:var(--muted);margin:2px 0 8px;min-height:2.6em}
+  canvas{width:100%;height:210px;display:block;border-radius:8px;cursor:zoom-in}
+  .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .zoom{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;
+    padding:3px 10px;font:inherit;font-size:.8rem;cursor:pointer;white-space:nowrap}
+  .zoom:hover{border-color:var(--accent);color:var(--accent)}
+  .backdrop{position:fixed;inset:0;background:rgba(10,14,20,.6);z-index:90;display:none}
+  .backdrop.on{display:block}
+  .card.expanded{position:fixed;z-index:100;inset:3vh 3vw;overflow:auto;padding:18px 22px;
+    display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  .card.expanded canvas{flex:1;min-height:300px;height:auto;cursor:crosshair}
+  .card.expanded h3{font-size:1.3rem}
+  .card.expanded .formula{font-size:.95rem}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .stat{background:var(--chip);border-radius:8px;padding:6px 10px}
+  .stat small{display:block;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat span{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:.95rem}
+  .stat.max span{color:var(--max)} .stat.min span{color:var(--min)}
+  .theo{margin-top:8px;font-size:.8rem;color:var(--muted)}
+  .theo b{color:var(--ink);font-weight:600}
+  .note{font-size:.82rem;color:var(--muted);margin-top:8px}
+  .legend{display:flex;gap:12px;font-size:.78rem;color:var(--muted);margin-top:4px}
+  .legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:4px;border-radius:2px}
+  @media (max-width:420px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fonctions d'activation</h1>
+  <p class="sub">Courbes et valeurs minimale / maximale des fonctions présentées dans le cours TensorFlow (Réseaux de neurones et modèles graphiques – M2).</p>
+
+  <div class="controls">
+    <div class="ctl"><label>Intervalle affiché : z ∈ [−R, R], R = <b id="vR">6</b></label>
+      <input id="R" type="range" min="2" max="12" step="0.5" value="6"></div>
+    <div class="ctl"><label>α Leaky ReLU = <b id="vAL">0.30</b></label>
+      <input id="aL" type="range" min="0.01" max="1" step="0.01" value="0.3"></div>
+    <div class="ctl"><label>α ELU / SELU = <b id="vAE">1.00</b></label>
+      <input id="aE" type="range" min="0.1" max="3" step="0.1" value="1"></div>
+    <div class="ctl"><label>α PReLU = <b id="vAP">0.25</b></label>
+      <input id="aP" type="range" min="0.01" max="1" step="0.01" value="0.25"></div>
+    <div class="ctl"><label>θ Thresholded ReLU = <b id="vTH">1.00</b></label>
+      <input id="th" type="range" min="0" max="3" step="0.1" value="1"></div>
+  </div>
+
+  <h2>Récapitulatif des valeurs min / max</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>Fonction</th><th>Min (sur l'intervalle)</th><th>en z =</th>
+        <th>Max (sur l'intervalle)</th><th>en z =</th><th>Min théorique (sur ℝ)</th><th>Max théorique (sur ℝ)</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="note">« Sur l'intervalle » : valeurs calculées numériquement (2001 points) sur [−R, R] ; elles changent avec R pour les fonctions non bornées.
+    « Théorique » : borne (inf / sup) sur tout ℝ ; une borne notée avec une parenthèse (ex. (0, 1)) est approchée sans jamais être atteinte.</p>
+
+  <h2>Courbes</h2>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+"use strict";
+const LAMBDA = 1.0507009873554805, ALPHA_SELU = 1.6732632423543772;
+const P = { aL:0.3, aE:1, aP:0.25, th:1, R:6 };
+
+const sp  = z => z > 30 ? z : Math.log1p(Math.exp(z));
+const sig = z => 1/(1+Math.exp(-z));
+
+// series : nombre de courbes ; f(z) renvoie un nombre (ou un tableau si series = 2)
+const FNS = [
+  { name:"Linéaire", formula:"f(z) = z",
+    f:z=>z, theo:()=>["−∞","+∞"] },
+  { name:"Sigmoïde", formula:"σ(z) = 1 / (1 + e^(−z))",
+    f:sig, theo:()=>["0 (non atteint)","1 (non atteint)"] },
+  { name:"Tangente hyperbolique", formula:"tanh(z) = (e^z − e^(−z)) / (e^z + e^(−z))",
+    f:Math.tanh, theo:()=>["−1 (non atteint)","1 (non atteint)"] },
+  { name:"ReLU", formula:"f(z) = max(0, z)",
+    f:z=>Math.max(0,z), theo:()=>["0","+∞"] },
+  { name:"Leaky ReLU", formula:()=>`f(z) = max(αz, z),  α = ${P.aL.toFixed(2)}`,
+    f:z=>Math.max(P.aL*z,z), theo:()=>["−∞","+∞"] },
+  { name:"ELU", formula:()=>`f(z) = z  si z > 0\nf(z) = α(e^z − 1)  si z ≤ 0,  α = ${P.aE.toFixed(2)}`,
+    f:z=>z>0?z:P.aE*(Math.exp(z)-1), theo:()=>[`−α = ${(-P.aE).toFixed(2)} (non atteint)`,"+∞"] },
+  { name:"SELU", formula:()=>`f(z) = λz  si z > 0\nf(z) = λα(e^z − 1)  si z ≤ 0\nλ≈1.0507, α≈1.6733 (valeurs standard)`,
+    f:z=>LAMBDA*(z>0?z:ALPHA_SELU*(Math.exp(z)-1)), theo:()=>[`−λα ≈ ${(-LAMBDA*ALPHA_SELU).toFixed(4)} (non atteint)`,"+∞"] },
+  { name:"GELU", formula:"GELU(z) = 0.5·z·(1 + tanh(√(2/π)·(z + 0.044715·z³)))",
+    f:z=>0.5*z*(1+Math.tanh(Math.sqrt(2/Math.PI)*(z+0.044715*z*z*z))), theo:()=>["≈ −0.17 (en z ≈ −0.75)","+∞"] },
+  { name:"SiLU (Swish)", formula:"SiLU(z) = z · σ(z) = z / (1 + e^(−z))",
+    f:z=>z*sig(z), theo:()=>["≈ −0.2785 (en z ≈ −1.278)","+∞"] },
+  { name:"Mish", formula:"Mish(z) = z · tanh(softplus(z)) = z · tanh(ln(1 + e^z))",
+    f:z=>z*Math.tanh(sp(z)), theo:()=>["≈ −0.3088 (en z ≈ −1.192)","+∞"] },
+  { name:"Softmax", formula:"softmax(z)₁ = e^z / (e^z + e^0 + e^0)\n(logits [z, 0, 0] : z varie, les autres fixés à 0)",
+    f:z=>Math.exp(z)/(Math.exp(z)+2), theo:()=>["0 (non atteint)","1 (non atteint)"],
+    note:"Softmax agit sur un vecteur : la courbe montre la 1re composante quand son logit varie. La somme des sorties vaut toujours 1." },
+  { name:"Softplus", formula:"softplus(z) = ln(1 + e^z)",
+    f:sp, theo:()=>["0 (non atteint)","+∞"] },
+  { name:"Softsign", formula:"softsign(z) = z / (1 + |z|)",
+    f:z=>z/(1+Math.abs(z)), theo:()=>["−1 (non atteint)","1 (non atteint)"] },
+  { name:"Exponentielle", formula:"f(z) = e^z",
+    f:Math.exp, theo:()=>["0 (non atteint)","+∞"] },
+  { name:"Hard Sigmoid", formula:"f(z) = max(0, min(1, 0.2·z + 0.5))\n(définition Keras)",
+    f:z=>Math.max(0,Math.min(1,0.2*z+0.5)), theo:()=>["0","1"] },
+  { name:"ReLU6", formula:"f(z) = min(max(0, z), 6)",
+    f:z=>Math.min(Math.max(0,z),6), theo:()=>["0","6"] },
+  { name:"Thresholded ReLU", formula:()=>`f(z) = z  si z > θ\nf(z) = 0  sinon,  θ = ${P.th.toFixed(2)}`,
+    f:z=>z>P.th?z:0, theo:()=>["0","+∞"] },
+  { name:"PReLU", formula:()=>`f(z) = z  si z ≥ 0\nf(z) = αz  si z < 0,  α = ${P.aP.toFixed(2)} (appris)`,
+    f:z=>z>=0?z:P.aP*z, theo:()=>["−∞","+∞"] },
+  { name:"CReLU", formula:"CReLU(z) = [max(0, z) ; max(0, −z)]\n(deux sorties concaténées)",
+    series:2, f:z=>[Math.max(0,z),Math.max(0,-z)], theo:()=>["0","+∞"],
+    note:"CReLU produit deux sorties par entrée (bleu : ReLU(z), orange : ReLU(−z)) ; min/max donnés sur l'ensemble des deux." },
+];
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = v => {
+  if (!isFinite(v)) return String(v);
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) return v.toExponential(3);
+  return (+v.toPrecision(5)).toString();
+};
+const nice = (lo, hi, n=5) => {
+  const span = hi-lo || 1, raw = span/n, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1,2,2.5,5,10].map(m=>m*p).find(s=>s>=raw) || 10*p;
+  const out = []; for (let t=Math.ceil(lo/step)*step; t<=hi+1e-9; t+=step) out.push(+t.toFixed(10));
+  return out;
+};
+
+const N = 2001;
+function compute(fn){
+  const xs = new Float64Array(N), ser = fn.series || 1;
+  const ys = Array.from({length:ser}, () => new Float64Array(N));
+  let mn=Infinity, mx=-Infinity, zmn=0, zmx=0;
+  for (let i=0;i<N;i++){
+    const z = -P.R + 2*P.R*i/(N-1); xs[i]=z;
+    const v = fn.f(z), arr = ser===1 ? [v] : v;
+    for (let s=0;s<ser;s++){
+      ys[s][i]=arr[s];
+      if (arr[s]<mn){mn=arr[s];zmn=z;}
+      if (arr[s]>mx){mx=arr[s];zmx=z;}
+    }
+  }
+  return {xs, ys, mn, mx, zmn, zmx};
+}
+
+function draw(canvas, fn, d, hoverIdx){
+  const dpr = window.devicePixelRatio||1, W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const c = canvas.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,W,H);
+  const L=44, Rr=10, T=10, B=24, pw=W-L-Rr, ph=H-T-B;
+  let ylo=d.mn, yhi=d.mx; if (ylo===yhi){ylo-=1;yhi+=1;}
+  const pad=(yhi-ylo)*0.08; ylo-=pad; yhi+=pad;
+  if (ylo>0) ylo=Math.min(ylo,-pad); if (yhi<0) yhi=Math.max(yhi,pad);
+  const X=z=>L+(z+P.R)/(2*P.R)*pw, Y=v=>T+(yhi-v)/(yhi-ylo)*ph;
+  c.font="11px system-ui,sans-serif"; c.textBaseline="middle";
+  // grille + graduations
+  c.lineWidth=1;
+  for (const t of nice(-P.R,P.R,6)){ const x=X(t); c.strokeStyle=css("--grid"); c.beginPath();c.moveTo(x,T);c.lineTo(x,T+ph);c.stroke();
+    c.fillStyle=css("--muted"); c.textAlign="center"; c.fillText(fmt(t),x,H-10); }
+  for (const t of nice(ylo,yhi,5)){ const y=Y(t); c.strokeStyle=css("--grid"); c.beginPath();c.moveTo(L,y);c.lineTo(L+pw,y);c.stroke();
+    c.fillStyle=css("--muted"); c.textAlign="right"; c.fillText(fmt(t),L-6,y); }
+  // axes
+  c.strokeStyle=css("--axis"); c.lineWidth=1.3; c.beginPath();
+  c.moveTo(X(0),T);c.lineTo(X(0),T+ph);c.moveTo(L,Y(0));c.lineTo(L+pw,Y(0));c.stroke();
+  // courbes
+  const cols=[css("--curve"),css("--curve2")];
+  d.ys.forEach((ys,s)=>{
+    c.strokeStyle=cols[s]; c.lineWidth=2.2; c.lineJoin="round"; c.beginPath();
+    for (let i=0;i<N;i++){ const x=X(d.xs[i]),y=Y(ys[i]); i?c.lineTo(x,y):c.moveTo(x,y); }
+    c.stroke();
+  });
+  // marqueurs min / max
+  const mark=(z,v,col)=>{ c.fillStyle=col; c.beginPath(); c.arc(X(z),Y(v),4.5,0,7); c.fill();
+    c.strokeStyle=css("--card"); c.lineWidth=1.5; c.stroke(); };
+  mark(d.zmx,d.mx,css("--max")); mark(d.zmn,d.mn,css("--min"));
+  // survol
+  if (hoverIdx!=null){
+    const z=d.xs[hoverIdx], x=X(z);
+    c.strokeStyle=css("--axis"); c.setLineDash([4,3]); c.lineWidth=1;
+    c.beginPath();c.moveTo(x,T);c.lineTo(x,T+ph);c.stroke(); c.setLineDash([]);
+    const txt=`z=${fmt(z)}  f=${d.ys.map(y=>fmt(y[hoverIdx])).join(" ; ")}`;
+    c.font="12px ui-monospace,Consolas,monospace"; const tw=c.measureText(txt).width+12;
+    const bx=Math.min(Math.max(x-tw/2,L),L+pw-tw);
+    c.fillStyle=css("--ink"); c.globalAlpha=.9; c.fillRect(bx,T+2,tw,20); c.globalAlpha=1;
+    c.fillStyle=css("--card"); c.textAlign="left"; c.fillText(txt,bx+6,T+12);
+    d.ys.forEach((ys,s)=>{ c.fillStyle=cols[s]; c.beginPath(); c.arc(x,Y(ys[hoverIdx]),4,0,7); c.fill(); });
+  }
+}
+
+const grid=document.getElementById("grid"), tbody=document.getElementById("tbody");
+const cards=[];
+FNS.forEach(fn=>{
+  const el=document.createElement("div"); el.className="card";
+  el.innerHTML=`<div class="head"><h3>${fn.name}</h3><button class="zoom" type="button">⤢ Agrandir</button></div><div class="formula"></div><canvas></canvas>
+    ${fn.series===2?'<div class="legend"><span><i style="background:var(--curve)"></i>max(0, z)</span><span><i style="background:var(--curve2)"></i>max(0, −z)</span></div>':''}
+    <div class="stats">
+      <div class="stat max"><small>Maximum</small><span class="vmax"></span></div>
+      <div class="stat min"><small>Minimum</small><span class="vmin"></span></div>
+    </div>
+    <div class="theo"></div>${fn.note?`<div class="note">${fn.note}</div>`:''}`;
+  grid.appendChild(el);
+  const tr=document.createElement("tr"); tbody.appendChild(tr);
+  const canvas=el.querySelector("canvas"); const card={fn,el,tr,canvas,d:null};
+  canvas.addEventListener("pointermove",e=>{
+    const r=canvas.getBoundingClientRect(), L=44, pw=r.width-L-10;
+    const f=(e.clientX-r.left-L)/pw; if(f<0||f>1) return draw(canvas,fn,card.d,null);
+    draw(canvas,fn,card.d,Math.round(f*(N-1)));
+  });
+  canvas.addEventListener("pointerleave",()=>draw(canvas,fn,card.d,null));
+  card.btn=el.querySelector(".zoom");
+  card.btn.addEventListener("click",()=>toggle(card));
+  canvas.addEventListener("click",()=>{ if(!el.classList.contains("expanded")) toggle(card); });
+  cards.push(card);
+});
+
+// Agrandir / réduire une courbe
+const backdrop=document.createElement("div"); backdrop.className="backdrop"; document.body.appendChild(backdrop);
+let openCard=null, placeholder=null;
+function toggle(card){
+  if (openCard && openCard!==card) toggle(openCard);
+  const open=!card.el.classList.contains("expanded");
+  if (open){
+    placeholder=document.createElement("div");
+    placeholder.style.height=card.el.offsetHeight+"px";
+    card.el.before(placeholder);
+    card.el.classList.add("expanded"); backdrop.classList.add("on");
+    card.btn.textContent="✕ Réduire"; document.body.style.overflow="hidden"; openCard=card;
+  } else {
+    card.el.classList.remove("expanded"); backdrop.classList.remove("on");
+    placeholder&&placeholder.remove(); placeholder=null;
+    card.btn.textContent="⤢ Agrandir"; document.body.style.overflow=""; openCard=null;
+  }
+  requestAnimationFrame(()=>draw(card.canvas,card.fn,card.d,null));
+}
+backdrop.addEventListener("click",()=>openCard&&toggle(openCard));
+addEventListener("keydown",e=>{ if(e.key==="Escape"&&openCard) toggle(openCard); });
+
+function update(){
+  for (const k of cards){
+    const {fn,el,tr,canvas}=k, d=k.d=compute(fn), [tmn,tmx]=fn.theo();
+    el.querySelector(".formula").textContent=typeof fn.formula==="function"?fn.formula():fn.formula;
+    el.querySelector(".formula").style.whiteSpace="pre-line";
+    el.querySelector(".vmax").textContent=`${fmt(d.mx)}  (z=${fmt(d.zmx)})`;
+    el.querySelector(".vmin").textContent=`${fmt(d.mn)}  (z=${fmt(d.zmn)})`;
+    el.querySelector(".theo").innerHTML=`Sur ℝ : min <b>${tmn}</b> · max <b>${tmx}</b>`;
+    tr.innerHTML=`<td><b>${fn.name}</b></td><td class="num mn">${fmt(d.mn)}</td><td class="num">${fmt(d.zmn)}</td>
+      <td class="num mx">${fmt(d.mx)}</td><td class="num">${fmt(d.zmx)}</td><td>${tmn}</td><td>${tmx}</td>`;
+    draw(canvas,fn,d,null);
+  }
+}
+const bind=(id,key,out,dig)=>document.getElementById(id).addEventListener("input",e=>{
+  P[key]=+e.target.value; document.getElementById(out).textContent=P[key].toFixed(dig); update(); });
+bind("R","R","vR",1); bind("aL","aL","vAL",2); bind("aE","aE","vAE",2); bind("aP","aP","vAP",2); bind("th","th","vTH",2);
+document.getElementById("vR").textContent="6.0";
+let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(update,80);});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",update);
+update();
+</script>
+</body>
+</html>
